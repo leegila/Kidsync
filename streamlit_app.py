@@ -1,16 +1,13 @@
 import streamlit as st
 import pandas as pd
 
-# הגדרות RTL ועיצוב מתקדם
-st.set_page_config(page_title="KidSync Control Tower", layout="wide")
+# הגדרות RTL ועיצוב
+st.set_page_config(page_title="KidSync Interactive", layout="wide")
 st.markdown("""
     <style>
     .stApp { direction: rtl; text-align: right; }
-    .main-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    .main-table th, .main-table td { border: 1px solid #ddd; padding: 10px; text-align: center; }
-    .header-row { background-color: #f2f2f2; font-weight: bold; }
-    .gap-cell { background-color: #ffcccc; color: #cc0000; font-weight: bold; }
-    .filled-cell { background-color: #d4edda; border-right: 10px solid; }
+    .stButton button { width: 100%; height: 80px; white-space: pre-wrap; margin-bottom: 5px; border-radius: 10px; }
+    div[data-testid="stExpander"] { direction: rtl; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -18,73 +15,83 @@ st.title("🛡️ מגדל הפיקוח של אחה\"צ")
 
 # ניהול נתונים
 if "events" not in st.session_state:
-    st.session_state.events = [
-        {"יום": "שני", "שעה": "16:00", "ילד": "נועם", "פעילות": "כדורסל", "מבוגר": "אמא"},
-        {"יום": "שני", "שעה": "17:00", "ילד": "מאיה", "פעילות": "חוג ציור", "מבוגר": ""}
-    ]
+    st.session_state.events = {} # שימוש במילון לגישה מהירה: (יום, שעה, ילד) -> נתונים
+
+if "edit_mode" not in st.session_state:
+    st.session_state.edit_mode = None
 
 days = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי"]
 children = ["נועם", "מאיה", "התינוקת"]
-hours = ["14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"]
+hours = [f"{h}:00" for h in range(14, 21)]
 
-# בורר תצוגה
-view_mode = st.radio("בחר טווח זמן:", ["יומי מפורט", "שבועי ריכוזי"], horizontal=True)
+# בורר יום
+selected_day = st.selectbox("בחר יום להצגה ועריכה:", days)
 
-if view_mode == "יומי מפורט":
-    selected_day = st.selectbox("בחר יום:", days)
-    st.subheader(f"סטטוס השגחה - יום {selected_day}")
+# יצירת לוח השעות (הדשבורד)
+st.subheader(f"לו\"ז יום {selected_day} - לחצי על משבצת לעריכה")
+
+# כותרות הילדים
+header_cols = st.columns([1] + [2] * len(children))
+with header_cols[0]: st.write("**שעה**")
+for i, child in enumerate(children):
+    with header_cols[i+1]: st.markdown(f"### {child}")
+
+# בניית המטריצה
+for hour in hours:
+    row_cols = st.columns([1] + [2] * len(children))
+    with row_cols[0]:
+        st.markdown(f"<div style='padding-top:25px; font-weight:bold;'>{hour}</div>", unsafe_allow_html=True)
     
-    # יצירת מטריצת תצוגה
-    cols = st.columns(len(children))
-    for idx, child in enumerate(children):
-        with cols[idx]:
-            st.markdown(f"### {child}")
-            for hour in hours:
-                # חיפוש פעילות לשעה ולילד הספציפיים
-                act = next((e for e in st.session_state.events if e["יום"] == selected_day and e["שעה"] == hour and e["ילד"] == child), None)
-                
-                if act:
-                    color = "#CCE5FF" if child == "נועם" else "#FFD1DC"
-                    status = f"✅ {act['מבוגר']}" if act['מבוגר'] else "🆘 אין השגחה!"
-                    border = "5px solid green" if act['מבוגר'] else "5px solid red"
-                    st.markdown(f"""
-                        <div style="background:{color}; padding:10px; border-radius:5px; border-right:{border}; margin-bottom:5px;">
-                            <b>{hour}</b><br>{act['פעילות']}<br><small>{status}</small>
-                        </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    # כאן הפיצ'ר החשוב: סימון שעות ריקות כ"חור"
-                    st.markdown(f"""
-                        <div style="background:#f9f9f9; padding:10px; border-radius:5px; border: 1px dashed #ccc; margin-bottom:5px; color:#999;">
-                            <b>{hour}</b><br>זמן בית / לא ידוע
-                        </div>
-                    """, unsafe_allow_html=True)
+    for i, child in enumerate(children):
+        with row_cols[i+1]:
+            # מפתח ייחודי לכל משבצת
+            key = (selected_day, hour, child)
+            event = st.session_state.events.get(key)
+            
+            # עיצוב הכפתור לפי הסטטוס
+            label = "➕ הוסף"
+            type_button = "secondary"
+            
+            if event:
+                guard = event['מבוגר'] if event['מבוגר'] else "🆘 חסר!"
+                label = f"{event['פעילות']}\n({guard})"
+                type_button = "primary" if event['מבוגר'] else "secondary"
+                # צבע אדום למבוגר חסר מושג דרך HTML/CSS (בעקיפין דרך ה-label)
 
-else: # שבועי ריכוזי
-    st.subheader("ריכוז חוסרים שבועי")
-    missing = [e for e in st.session_state.events if not e["מבוגר"]]
-    if missing:
-        for m in missing:
-            st.warning(f"יום {m['יום']} ב-{m['שעה']}: {m['ילד']} ב{m['פעילות']} ללא מבוגר!")
-    else:
-        st.success("כל החוגים המתוכננים מאוישים!")
+            if st.button(label, key=f"btn_{key}", type=type_button):
+                st.session_state.edit_mode = key
+                st.rerun()
 
-# טופס הוספה חכם
-st.divider()
-with st.expander("➕ עדכון לו\"ז / הוספת חוג"):
-    with st.form("add_event"):
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            d = st.selectbox("יום", days)
-            c = st.selectbox("ילד", children)
-        with c2:
-            t = st.selectbox("שעה", hours)
-            a = st.text_input("פעילות (חוג/בית/חבר)")
-        with c3:
-            g = st.text_input("מי משגיח?")
+# אזור עריכה שצף/מופיע רק כשלוחצים
+if st.session_state.edit_mode:
+    st.divider()
+    e_day, e_hour, e_child = st.session_state.edit_mode
+    st.subheader(f"עריכת פעילות: {e_child} ביום {e_day} בשעה {e_hour}")
+    
+    current_val = st.session_state.events.get(st.session_state.edit_mode, {"פעילות": "", "מבוגר": ""})
+    
+    with st.form("edit_form"):
+        new_act = st.text_input("פעילות:", value=current_val["פעילות"])
+        new_guard = st.text_input("מבוגר אחראי (השאירי ריק אם אין):", value=current_val["מבוגר"])
         
-        if st.form_submit_button("עדכן לו\"ז"):
-            # מחיקת אירוע קיים באותה שעה אם יש
-            st.session_state.events = [e for e in st.session_state.events if not (e["יום"] == d and e["שעה"] == t and e["ילד"] == c)]
-            st.session_state.events.append({"יום": d, "שעה": t, "ילד": c, "פעילות": a, "מבוגר": g})
-            st.rerun()
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.form_submit_button("שמור עדכון"):
+                st.session_state.events[st.session_state.edit_mode] = {"פעילות": new_act, "מבוגר": new_guard}
+                st.session_state.edit_mode = None
+                st.rerun()
+        with c2:
+            if st.form_submit_button("מחק פעילות"):
+                if st.session_state.edit_mode in st.session_state.events:
+                    del st.session_state.events[st.session_state.edit_mode]
+                st.session_state.edit_mode = None
+                st.rerun()
+    if st.button("ביטול"):
+        st.session_state.edit_mode = None
+        st.rerun()
+
+# כפתור איפוס שבועי
+st.sidebar.divider()
+if st.sidebar.button("איפוס כל הלו\"ז השבועי"):
+    st.session_state.events = {}
+    st.rerun()
