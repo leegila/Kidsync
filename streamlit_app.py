@@ -1,93 +1,90 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 
-# הגדרות תצוגה וכיוון כתיבה
-st.set_page_config(page_title="KidSync Pro", layout="wide")
+# הגדרות RTL ועיצוב מתקדם
+st.set_page_config(page_title="KidSync Control Tower", layout="wide")
 st.markdown("""
     <style>
     .stApp { direction: rtl; text-align: right; }
-    div[data-testid="stExpander"] { text-align: right; direction: rtl; }
-    .stTabs [data-baseweb="tab-list"] { direction: rtl; gap: 10px; }
-    p, h1, h2, h3, span, label { text-align: right; justify-content: right; }
-    .stRadio > div { direction: rtl; gap: 20px; }
+    .main-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .main-table th, .main-table td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+    .header-row { background-color: #f2f2f2; font-weight: bold; }
+    .gap-cell { background-color: #ffcccc; color: #cc0000; font-weight: bold; }
+    .filled-cell { background-color: #d4edda; border-right: 10px solid; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🏃‍♂️ KidSync Pro")
+st.title("🛡️ מגדל הפיקוח של אחה\"צ")
 
-# אתחול נתונים (כולל תמיכה בחוגים קבועים)
+# ניהול נתונים
 if "events" not in st.session_state:
     st.session_state.events = [
-        {"יום": "שני", "שעה": "16:00", "ילד": "נועם", "פעילות": "כדורסל", "מבוגר": "אמא", "קבוע": True},
-        {"יום": "שני", "שעה": "17:30", "ילד": "מאיה", "פעילות": "חוג ציור", "מבוגר": "", "קבוע": True},
-        {"יום": "רביעי", "שעה": "16:30", "ילד": "נועם", "פעילות": "ג'ודו", "מבוגר": "בייביסיטר", "קבוע": True}
+        {"יום": "שני", "שעה": "16:00", "ילד": "נועם", "פעילות": "כדורסל", "מבוגר": "אמא"},
+        {"יום": "שני", "שעה": "17:00", "ילד": "מאיה", "פעילות": "חוג ציור", "מבוגר": ""}
     ]
 
-child_colors = {"נועם": "#CCE5FF", "מאיה": "#FFD1DC", "התינוקת": "#D4EDDA", "אחר": "#F8F9FA"}
 days = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי"]
+children = ["נועם", "מאיה", "התינוקת"]
+hours = ["14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"]
 
-# --- תפריט עליון: בחירת תצוגה ---
-view_option = st.radio("בחר תצוגה:", ["יום אחד", "3 ימים", "שבוע מלא"], horizontal=True)
+# בורר תצוגה
+view_mode = st.radio("בחר טווח זמן:", ["יומי מפורט", "שבועי ריכוזי"], horizontal=True)
 
-def render_event(ev):
-    bg = child_colors.get(ev["ילד"], "#FFFFFF")
-    border = "5px solid red" if not ev["מבוגר"] else "1px solid #ccc"
-    repeat_icon = "🔄" if ev.get("קבוע") else "📍"
-    st.markdown(f"""
-        <div style="background-color:{bg}; padding:12px; border-radius:10px; border-right:{border}; margin-bottom:8px; color: black; display: flex; justify-content: space-between; align-items: center;">
-            <div style="font-weight: bold; width: 60px;">{ev["שעה"]}</div>
-            <div style="flex-grow: 1; margin-right: 15px;">{repeat_icon} <b>{ev["ילד"]}</b>: {ev["פעילות"]}</div>
-            <div style="text-align: left; min-width: 100px;">{"✅ " + ev["מבוגר"] if ev["מבוגר"] else "🆘 חסר!"}</div>
-        </div>
-    """, unsafe_allow_html=True)
+if view_mode == "יומי מפורט":
+    selected_day = st.selectbox("בחר יום:", days)
+    st.subheader(f"סטטוס השגחה - יום {selected_day}")
+    
+    # יצירת מטריצת תצוגה
+    cols = st.columns(len(children))
+    for idx, child in enumerate(children):
+        with cols[idx]:
+            st.markdown(f"### {child}")
+            for hour in hours:
+                # חיפוש פעילות לשעה ולילד הספציפיים
+                act = next((e for e in st.session_state.events if e["יום"] == selected_day and e["שעה"] == hour and e["ילד"] == child), None)
+                
+                if act:
+                    color = "#CCE5FF" if child == "נועם" else "#FFD1DC"
+                    status = f"✅ {act['מבוגר']}" if act['מבוגר'] else "🆘 אין השגחה!"
+                    border = "5px solid green" if act['מבוגר'] else "5px solid red"
+                    st.markdown(f"""
+                        <div style="background:{color}; padding:10px; border-radius:5px; border-right:{border}; margin-bottom:5px;">
+                            <b>{hour}</b><br>{act['פעילות']}<br><small>{status}</small>
+                        </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    # כאן הפיצ'ר החשוב: סימון שעות ריקות כ"חור"
+                    st.markdown(f"""
+                        <div style="background:#f9f9f9; padding:10px; border-radius:5px; border: 1px dashed #ccc; margin-bottom:5px; color:#999;">
+                            <b>{hour}</b><br>זמן בית / לא ידוע
+                        </div>
+                    """, unsafe_allow_html=True)
 
-# --- לוגיקת תצוגה ---
-if view_option == "שבוע מלא":
-    tabs = st.tabs(days)
-    for i, day_tab in enumerate(tabs):
-        with day_tab:
-            day_events = sorted([e for e in st.session_state.events if e["יום"] == days[i]], key=lambda x: x["שעה"])
-            if not day_events: st.info(f"אין פעילויות ליום {days[i]}")
-            for ev in day_events: render_event(ev)
+else: # שבועי ריכוזי
+    st.subheader("ריכוז חוסרים שבועי")
+    missing = [e for e in st.session_state.events if not e["מבוגר"]]
+    if missing:
+        for m in missing:
+            st.warning(f"יום {m['יום']} ב-{m['שעה']}: {m['ילד']} ב{m['פעילות']} ללא מבוגר!")
+    else:
+        st.success("כל החוגים המתוכננים מאוישים!")
 
-elif view_option == "3 ימים":
-    col1, col2, col3 = st.columns(3)
-    # נניח שהיום יום שני לצורך הדוגמה (ניתן לחבר לתאריך אמיתי)
-    selected_3_days = ["ראשון", "שני", "שלישי"] 
-    for idx, col in enumerate([col1, col2, col3]):
-        with col:
-            st.subheader(selected_3_days[idx])
-            d_events = sorted([e for e in st.session_state.events if e["יום"] == selected_3_days[idx]], key=lambda x: x["שעה"])
-            for ev in d_events: render_event(ev)
-
-else: # יום אחד
-    target_day = st.selectbox("בחר יום להצגה:", days)
-    d_events = sorted([e for e in st.session_state.events if e["יום"] == target_day], key=lambda x: x["שעה"])
-    if not d_events: st.info("יום פנוי!")
-    for ev in d_events: render_event(ev)
-
-# --- הוספת פעילות ---
-st.markdown("---")
-with st.expander("➕ הוספת פעילות חדשה / חוג קבוע"):
-    with st.form("add_new"):
-        c1, c2 = st.columns(2)
+# טופס הוספה חכם
+st.divider()
+with st.expander("➕ עדכון לו\"ז / הוספת חוג"):
+    with st.form("add_event"):
+        c1, c2, c3 = st.columns(3)
         with c1:
-            n_day = st.selectbox("יום", days)
-            n_child = st.selectbox("ילד", list(child_colors.keys()))
-            n_time = st.text_input("שעה (למשל 16:00)")
+            d = st.selectbox("יום", days)
+            c = st.selectbox("ילד", children)
         with c2:
-            n_act = st.text_input("פעילות")
-            n_guard = st.text_input("מבוגר אחראי")
-            n_is_fixed = st.checkbox("חוג קבוע (חוזר כל שבוע)")
+            t = st.selectbox("שעה", hours)
+            a = st.text_input("פעילות (חוג/בית/חבר)")
+        with c3:
+            g = st.text_input("מי משגיח?")
         
-        if st.form_submit_button("שמור"):
-            st.session_state.events.append({
-                "יום": n_day, "שעה": n_time, "ילד": n_child, 
-                "פעילות": n_act, "מבוגר": n_guard, "קבוע": n_is_fixed
-            })
+        if st.form_submit_button("עדכן לו\"ז"):
+            # מחיקת אירוע קיים באותה שעה אם יש
+            st.session_state.events = [e for e in st.session_state.events if not (e["יום"] == d and e["שעה"] == t and e["ילד"] == c)]
+            st.session_state.events.append({"יום": d, "שעה": t, "ילד": c, "פעילות": a, "מבוגר": g})
             st.rerun()
-
-if st.button("איפוס נתונים"):
-    st.session_state.events = []
-    st.rerun()
