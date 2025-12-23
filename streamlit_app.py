@@ -1,51 +1,41 @@
 import streamlit as st
 
-# הגדרות בסיסיות ויישור לימין
-st.set_page_config(page_title="KidSync Control", layout="wide")
+st.set_page_config(page_title="KidSync", layout="wide")
+
+# עיצוב RTL וצבעים
 st.markdown("""
     <style>
     .stApp { direction: rtl; text-align: right; }
-    /* כותרות הילדים */
-    .child-label { 
-        text-align: center; 
-        font-weight: bold; 
-        background-color: #343a40; 
-        color: white; 
-        padding: 10px; 
-        border-radius: 5px;
-        margin-bottom: 10px;
-    }
-    /* עיצוב השעות */
-    .hour-text { font-weight: bold; font-size: 18px; padding-top: 15px; }
+    .child-header { text-align: center; font-weight: bold; background: #343a40; color: white; padding: 10px; border-radius: 5px; }
+    .hour-col { font-weight: bold; font-size: 18px; padding-top: 10px; }
+    /* עיצוב כפתור ריק (חור) */
+    div.stButton > button { background-color: #ffebcc !important; color: #cc7a00 !important; border: 2px dashed #ffad33 !important; }
+    /* עיצוב כפתור מאויש (תקין) */
+    div.stButton > button[kind="primary"] { background-color: #d4edda !important; color: #155724 !important; border: 1px solid #c3e6cb !important; }
+    /* עיצוב כפתור ללא בייביסיטר (בעיה) */
+    div.stButton > button[kind="secondary"] { background-color: #f8d7da !important; color: #721c24 !important; border: 2px solid #f5c6cb !important; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🛡️ מפת השגחה: 16:00-20:00")
+st.title("🛡️ מפת השגחה אחה\"צ")
 
-# אתחול נתונים
 if "events" not in st.session_state:
     st.session_state.events = []
 
 days = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי"]
-children = ["נועם", "מאיה", "התינוקת"]
-hours = ["16:00", "17:00", "18:00", "19:00", "20:00"]
+kids = ["נועם", "מאיה", "התינוקת"]
+hours = [f"{h}:00" for h in range(16, 21)]
 
-# --- טופס הוספה ---
-with st.expander("➕ עדכון פעילות (לכמה ילדים/שעות)", expanded=True):
+# טופס הוספה
+with st.expander("➕ הוספת פעילות / חוג", expanded=True):
     with st.form("add_form"):
         c1, c2 = st.columns(2)
         with c1:
-            sel_day = st.selectbox("יום", days)
-            sel_kids = st.multiselect("ילדים", children)
-            sel_start = st.selectbox("מהשעה", hours)
-            sel_end = st.selectbox("עד השעה", hours + ["21:00"])
+            d_sel = st.selectbox("יום", days)
+            k_sel = st.multiselect("ילדים", kids)
         with c2:
-            sel_act = st.text_input("מה הפעילות?")
-            sel_guard = st.text_input("מי המבוגר? (השאירי ריק לסימון חור)")
+            s_sel = st.selectbox("התחלה", hours)
+            e_sel = st.selectbox("סיום", hours + ["21:00"], index=1)
         
-        if st.form_submit_button("עדכן את הלוח"):
-            if sel_kids and sel_act:
-                st.session_state.events.append({
-                    "day": sel_day, "kids": sel_kids, 
-                    "start": int(sel_start.split(":")[0]), 
-                    "end": int(sel_end.split
+        act_sel = st.text_input("מה הפעילות?")
+        gr
